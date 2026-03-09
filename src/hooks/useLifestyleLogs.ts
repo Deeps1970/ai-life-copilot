@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { calculateScores, type LifestyleData } from "@/lib/store";
 
@@ -52,70 +52,72 @@ function saveLocalLogs(logs: LifestyleLog[]) {
 }
 
 export function useLifestyleLogs() {
-  const [logs, setLogs] = useState<LifestyleLog[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [userId, setUserId] = useState<string | null>(null);
+  const [logs, setLogs] = useState<LifestyleLog[]>(() => getLocalLogs());
+  const [loading, setLoading] = useState(false);
+  const userIdRef = useRef<string | null>(null);
 
-  // Check auth state
+  // Check auth and load from Supabase if authenticated
   useEffect(() => {
-    supabase.auth.getUser().then(({ data }) => {
-      setUserId(data.user?.id ?? null);
+    let cancelled = false;
+    supabase.auth.getUser().then(async ({ data }) => {
+      if (cancelled) return;
+      const uid = data.user?.id ?? null;
+      userIdRef.current = uid;
+      if (uid) {
+        setLoading(true);
+        const { data: rows } = await supabase
+          .from("lifestyle_logs")
+          .select("*")
+          .eq("user_id", uid)
+          .order("date", { ascending: true });
+        if (!cancelled && rows) {
+          const mapped = rows.map((r) => ({
+            date: r.date,
+            steps: r.steps,
+            sleep_hours: Number(r.sleep_hours),
+            water_intake: Number(r.water_intake),
+            screen_time: Number(r.screen_time),
+            meals_quality: r.meals_quality,
+            exercise_time: r.exercise_time,
+            transport_type: r.transport_type,
+            health_score: r.health_score,
+            productivity_score: r.productivity_score,
+            sustainability_score: r.sustainability_score,
+          }));
+          setLogs(mapped);
+        }
+        setLoading(false);
+      }
     });
+    return () => { cancelled = true; };
   }, []);
 
-  // Load logs
-  const fetchLogs = useCallback(async () => {
-    setLoading(true);
-    if (userId) {
-      const { data } = await supabase
-        .from("lifestyle_logs")
-        .select("*")
-        .eq("user_id", userId)
-        .order("date", { ascending: true });
-      if (data) {
-        setLogs(data.map((r) => ({
-          date: r.date,
-          steps: r.steps,
-          sleep_hours: Number(r.sleep_hours),
-          water_intake: Number(r.water_intake),
-          screen_time: Number(r.screen_time),
-          meals_quality: r.meals_quality,
-          exercise_time: r.exercise_time,
-          transport_type: r.transport_type,
-          health_score: r.health_score,
-          productivity_score: r.productivity_score,
-          sustainability_score: r.sustainability_score,
-        })));
-      }
-    } else {
-      setLogs(getLocalLogs());
-    }
-    setLoading(false);
-  }, [userId]);
-
-  useEffect(() => {
-    fetchLogs();
-  }, [fetchLogs]);
-
-  // Upsert a log for a given date
+  // Upsert a log for a given date — updates state immediately
   const upsertLog = useCallback(async (data: LifestyleData, date?: string) => {
     const d = date || todayISO();
     const log = lifestyleDataToLog(data, d);
 
-    if (userId) {
+    // Optimistically update state
+    setLogs((prev) => {
+      const updated = [...prev];
+      const idx = updated.findIndex((l) => l.date === d);
+      if (idx >= 0) updated[idx] = log;
+      else updated.push(log);
+      updated.sort((a, b) => a.date.localeCompare(b.date));
+      // Also persist to localStorage always
+      saveLocalLogs(updated);
+      return updated;
+    });
+
+    // If authenticated, also persist to Supabase
+    const uid = userIdRef.current;
+    if (uid) {
       await supabase.from("lifestyle_logs").upsert(
-        { ...log, user_id: userId },
+        { ...log, user_id: uid },
         { onConflict: "user_id,date" }
       );
-    } else {
-      const local = getLocalLogs();
-      const idx = local.findIndex((l) => l.date === d);
-      if (idx >= 0) local[idx] = log;
-      else local.push(log);
-      saveLocalLogs(local);
     }
-    await fetchLogs();
-  }, [userId, fetchLogs]);
+  }, []);
 
-  return { logs, loading, upsertLog, refetch: fetchLogs };
+  return { logs, loading, upsertLog };
 }
