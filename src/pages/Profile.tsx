@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { User, Bell, Shield, Palette, HelpCircle, LogOut, Cloud, Smartphone, Mail, Lock, ArrowLeft } from "lucide-react";
+import { User, Bell, Shield, HelpCircle, LogOut, Cloud, Smartphone, Mail, Lock, ArrowLeft } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { supabase } from "@/lib/supabase";
@@ -10,15 +10,13 @@ import { toast } from "sonner";
 import { useUserSettings } from "@/hooks/useUserSettings";
 import NotificationsSettings from "@/components/settings/NotificationsSettings";
 import PrivacySettings from "@/components/settings/PrivacySettings";
-import AppearanceSettings from "@/components/settings/AppearanceSettings";
 import HelpSupport from "@/components/settings/HelpSupport";
 
-type SettingsPanel = "notifications" | "privacy" | "appearance" | "help" | null;
+type SettingsPanel = "notifications" | "privacy" | "help" | null;
 
 const profileItems: { icon: typeof Bell; label: string; desc: string; panel: SettingsPanel }[] = [
   { icon: Bell, label: "Notifications", desc: "Manage alert preferences", panel: "notifications" },
   { icon: Shield, label: "Privacy", desc: "Data and privacy settings", panel: "privacy" },
-  { icon: Palette, label: "Appearance", desc: "Theme and display options", panel: "appearance" },
   { icon: HelpCircle, label: "Help & Support", desc: "FAQs and contact us", panel: "help" },
 ];
 
