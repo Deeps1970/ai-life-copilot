@@ -14,7 +14,48 @@ export type Database = {
   }
   public: {
     Tables: {
-      [_ in never]: never
+      user_settings: {
+        Row: {
+          cloud_sync: boolean
+          created_at: string
+          id: string
+          notifications_health: boolean
+          notifications_sleep: boolean
+          notifications_steps: boolean
+          notifications_water: boolean
+          share_anonymous_data: boolean
+          theme: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          cloud_sync?: boolean
+          created_at?: string
+          id?: string
+          notifications_health?: boolean
+          notifications_sleep?: boolean
+          notifications_steps?: boolean
+          notifications_water?: boolean
+          share_anonymous_data?: boolean
+          theme?: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          cloud_sync?: boolean
+          created_at?: string
+          id?: string
+          notifications_health?: boolean
+          notifications_sleep?: boolean
+          notifications_steps?: boolean
+          notifications_water?: boolean
+          share_anonymous_data?: boolean
+          theme?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
     }
     Views: {
       [_ in never]: never
