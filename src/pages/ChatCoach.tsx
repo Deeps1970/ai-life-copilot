@@ -1,0 +1,363 @@
+import { useState, useRef, useEffect } from "react";
+import { Send, Bot, ArrowLeft, Menu, Eraser, CheckCircle2, Clock } from "lucide-react";
+import { Button } from "@/components/ui/button";
+import { useNavigate } from "react-router-dom";
+import type { LifestyleData } from "@/lib/store";
+import { useChatThreads, type ChatMessage } from "@/hooks/useChatThreads";
+import { useSuggestionTracker, extractSuggestions } from "@/hooks/useSuggestionTracker";
+import ChatThreadSidebar from "@/components/ChatThreadSidebar";
+
+
+
+
+const quickQuestions = [
+  "How can I improve my sleep?",
+  "How to reduce screen addiction?",
+  "Tips for staying hydrated?",
+  "Best exercise routine?",
+];
+
+const ThinkingDots = () => {
+  const [dots, setDots] = useState("");
+  useEffect(() => {
+    const interval = setInterval(() => {
+      setDots((prev) => (prev.length >= 3 ? "" : prev + "."));
+    }, 400);
+    return () => clearInterval(interval);
+  }, []);
+  return <span>AI analyzing your lifestyle{dots}</span>;
+};
+
+const ChatCoach = () => {
+  const navigate = useNavigate();
+  const {
+    threads,
+    activeThread,
+    activeThreadId,
+    createThread,
+    switchThread,
+    clearThread,
+    deleteThread,
+    setMessages,
+    updateThreadTitle,
+  } = useChatThreads();
+  const { addSuggestions, completeSuggestion, getActiveSuggestions, getRecentCompleted } = useSuggestionTracker();
+
+  const [input, setInput] = useState("");
+  const [isLoading, setIsLoading] = useState(false);
+  const [sidebarOpen, setSidebarOpen] = useState(false);
+  const messagesEndRef = useRef<HTMLDivElement>(null);
+
+  const messages = activeThread.messages;
+
+
+
+  useEffect(() => {
+    messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
+  }, [messages]);
+
+  const getLifestyleData = (): LifestyleData | null => {
+    try {
+      const stored = localStorage.getItem("lifestyleData");
+      return stored ? JSON.parse(stored) : null;
+    } catch {
+      return null;
+    }
+  };
+
+  const handleCompleteSuggestion = (id: string, text: string) => {
+    completeSuggestion(id);
+    // Sync to insights: update lifestyle data based on completed suggestion category
+    try {
+      const stored = localStorage.getItem("lifestyleData");
+      if (stored) {
+        const data: LifestyleData = JSON.parse(stored);
+        const lower = text.toLowerCase();
+        if (lower.includes("step") || lower.includes("walk")) {
+          data.steps = Math.min(data.steps + 2000, 15000);
+        } else if (lower.includes("water") || lower.includes("hydrat")) {
+          data.waterIntake = Math.min(data.waterIntake + 0.5, 4);
+        } else if (lower.includes("sleep")) {
+          data.sleepHours = Math.min(data.sleepHours + 0.5, 9);
+        } else if (lower.includes("screen")) {
+          data.screenTime = Math.max(data.screenTime - 1, 1);
+        } else if (lower.includes("exercise") || lower.includes("workout")) {
+          data.exerciseTime = Math.min(data.exerciseTime + 15, 90);
+        }
+        localStorage.setItem("lifestyleData", JSON.stringify(data));
+      }
+    } catch {}
+    // Send confirmation message to AI
+    sendMessage(`Yes, I completed: "${text}"`);
+  };
+
+  const handleNotYet = (text: string) => {
+    sendMessage(`Not yet — I haven't completed: "${text}"`);
+  };
+
+  const sendMessage = async (text: string) => {
+    if (!text.trim() || isLoading) return;
+
+    const userMsg: ChatMessage = { role: "user", content: text };
+    setMessages((prev) => [...prev, userMsg]);
+    setInput("");
+    setIsLoading(true);
+
+    // Auto-title on first user message
+    const userMessages = messages.filter((m) => m.role === "user");
+    if (userMessages.length === 0) {
+      updateThreadTitle(activeThreadId, text);
+    }
+
+    // Add loading message
+    setMessages((prev) => [...prev, { role: "assistant", content: "", isLoading: true }]);
+
+    const lifestyleData = getLifestyleData();
+    const activeSuggestions = getActiveSuggestions().map((s) => s.text);
+    const completedSuggestions = getRecentCompleted().map((s) => s.text);
+    const chatHistory = [...messages.filter((m) => !m.isLoading), userMsg].map(({ role, content }) => ({
+      role,
+      content,
+    }));
+
+    try {
+      const response = await fetch(
+        `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/ai-coach`,
+        {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${import.meta.env.VITE_SUPABASE_PUBLISHABLE_DEFAULT_KEY}`,
+          },
+          body: JSON.stringify({ messages: chatHistory, lifestyleData, activeSuggestions, completedSuggestions }),
+        }
+      );
+
+      if (!response.ok || !response.body) {
+        let errorMsg = "Sorry, I couldn't generate advice right now. Please try again.";
+        try {
+          const errData = await response.json();
+          if (errData.error) errorMsg = errData.error;
+        } catch {}
+        setMessages((prev) =>
+          prev.map((m, i) =>
+            i === prev.length - 1 ? { role: "assistant", content: errorMsg, isLoading: false } : m
+          )
+        );
+        setIsLoading(false);
+        return;
+      }
+
+      // Stream the response
+      const reader = response.body.getReader();
+      const decoder = new TextDecoder();
+      let assistantContent = "";
+      let textBuffer = "";
+
+      while (true) {
+        const { done, value } = await reader.read();
+        if (done) break;
+        textBuffer += decoder.decode(value, { stream: true });
+
+        let newlineIndex: number;
+        while ((newlineIndex = textBuffer.indexOf("\n")) !== -1) {
+          let line = textBuffer.slice(0, newlineIndex);
+          textBuffer = textBuffer.slice(newlineIndex + 1);
+
+          if (line.endsWith("\r")) line = line.slice(0, -1);
+          if (line.startsWith(":") || line.trim() === "") continue;
+          if (!line.startsWith("data: ")) continue;
+
+          const jsonStr = line.slice(6).trim();
+          if (jsonStr === "[DONE]") break;
+
+          try {
+            const parsed = JSON.parse(jsonStr);
+            const delta = parsed.choices?.[0]?.delta?.content;
+            if (delta) {
+              assistantContent += delta;
+              setMessages((prev) =>
+                prev.map((m, i) =>
+                  i === prev.length - 1
+                    ? { role: "assistant", content: assistantContent, isLoading: false }
+                    : m
+                )
+              );
+            }
+          } catch {
+            textBuffer = line + "\n" + textBuffer;
+            break;
+          }
+        }
+      }
+
+      // Final flush
+      if (textBuffer.trim()) {
+        for (let raw of textBuffer.split("\n")) {
+          if (!raw) continue;
+          if (raw.endsWith("\r")) raw = raw.slice(0, -1);
+          if (raw.startsWith(":") || raw.trim() === "") continue;
+          if (!raw.startsWith("data: ")) continue;
+          const jsonStr = raw.slice(6).trim();
+          if (jsonStr === "[DONE]") continue;
+          try {
+            const parsed = JSON.parse(jsonStr);
+            const delta = parsed.choices?.[0]?.delta?.content;
+            if (delta) {
+              assistantContent += delta;
+            }
+          } catch {}
+        }
+      }
+
+      if (!assistantContent) {
+        assistantContent = "Sorry, I couldn't generate advice right now. Please try again.";
+      }
+
+      // Extract and store suggestions from the AI response
+      const extracted = extractSuggestions(assistantContent);
+      if (extracted.length > 0) {
+        addSuggestions(extracted);
+      }
+
+      setMessages((prev) =>
+        prev.map((m, i) =>
+          i === prev.length - 1
+            ? { role: "assistant", content: assistantContent, isLoading: false }
+            : m
+        )
+      );
+    } catch (e) {
+      console.error("Chat error:", e);
+      setMessages((prev) =>
+        prev.map((m, i) =>
+          i === prev.length - 1
+            ? { role: "assistant", content: "Sorry, I couldn't generate advice right now. Please try again.", isLoading: false }
+            : m
+        )
+      );
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  return (
+    <div className="flex flex-col h-screen">
+      <ChatThreadSidebar
+        threads={threads}
+        activeThreadId={activeThreadId}
+        onSelect={switchThread}
+        onCreate={createThread}
+        onDelete={deleteThread}
+        open={sidebarOpen}
+        onClose={() => setSidebarOpen(false)}
+      />
+
+      {/* Header */}
+      <div className="glass-card rounded-none border-x-0 border-t-0 p-4 flex items-center gap-3">
+        <button onClick={() => setSidebarOpen(true)} className="p-2 rounded-xl hover:bg-muted transition-colors">
+          <Menu size={20} />
+        </button>
+        <button onClick={() => navigate(-1)} className="p-2 rounded-xl hover:bg-muted transition-colors">
+          <ArrowLeft size={20} />
+        </button>
+        <div className="p-2 rounded-xl bg-primary/10">
+          <Bot size={20} className="text-primary" />
+        </div>
+        <div className="flex-1 min-w-0">
+          <h2 className="font-display font-semibold truncate">{activeThread.title}</h2>
+          <p className="text-xs text-muted-foreground">Always here to help</p>
+        </div>
+        <button
+          onClick={clearThread}
+          className="p-2 rounded-xl hover:bg-destructive/20 hover:text-destructive transition-colors text-muted-foreground"
+          title="Clear Thread"
+        >
+          <Eraser size={18} />
+        </button>
+      </div>
+
+      {/* Messages */}
+      <div className="flex-1 overflow-y-auto p-4 space-y-3 pb-32">
+        {messages.map((msg, i) => (
+          <div
+            key={i}
+            className={`${msg.role === "user" ? "flex justify-end" : "flex justify-start"} animate-in fade-in slide-in-from-bottom-2 duration-300`}
+          >
+            <div className={msg.role === "user" ? "chat-bubble-user" : "chat-bubble-ai"}>
+              {msg.isLoading ? (
+                <p className="text-sm leading-relaxed text-muted-foreground italic">
+                  <ThinkingDots />
+                </p>
+              ) : (
+                <p className="text-sm leading-relaxed whitespace-pre-wrap">{msg.content}</p>
+              )}
+            </div>
+          </div>
+        ))}
+
+        {messages.length === 1 && (
+          <>
+            {/* Active suggestions follow-up */}
+            {getActiveSuggestions().length > 0 && (
+              <div className="glass-card p-4 space-y-3 mt-2">
+                <p className="text-sm font-medium text-foreground">📋 Follow up on your goals:</p>
+                {getActiveSuggestions().slice(0, 3).map((s) => (
+                  <div key={s.id} className="flex items-center gap-2 justify-between">
+                    <p className="text-sm text-muted-foreground flex-1">{s.text}</p>
+                    <div className="flex gap-1.5 shrink-0">
+                      <button
+                        onClick={() => handleCompleteSuggestion(s.id, s.text)}
+                        className="flex items-center gap-1 px-2.5 py-1 rounded-lg bg-green-500/15 text-green-400 text-xs font-medium hover:bg-green-500/25 transition-colors"
+                      >
+                        <CheckCircle2 size={13} /> Yes
+                      </button>
+                      <button
+                        onClick={() => handleNotYet(s.text)}
+                        className="flex items-center gap-1 px-2.5 py-1 rounded-lg bg-muted text-muted-foreground text-xs font-medium hover:bg-muted/80 transition-colors"
+                      >
+                        <Clock size={13} /> Not yet
+                      </button>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 mt-4">
+              {quickQuestions.map((q) => (
+                <button
+                  key={q}
+                  onClick={() => sendMessage(q)}
+                  className="glass-card p-3 text-sm text-left hover:bg-primary/10 transition-colors"
+                >
+                  {q}
+                </button>
+              ))}
+            </div>
+          </>
+        )}
+        <div ref={messagesEndRef} />
+      </div>
+
+      {/* Input */}
+      <div className="fixed bottom-16 lg:bottom-0 left-0 right-0 p-4 backdrop-blur-xl border-t border-border/50" style={{ background: "hsl(var(--background) / 0.9)" }}>
+        <div className="max-w-2xl mx-auto flex gap-2">
+          <input
+            type="text"
+            value={input}
+            onChange={(e) => setInput(e.target.value)}
+            onKeyDown={(e) => e.key === "Enter" && sendMessage(input)}
+            placeholder="Ask your AI Coach..."
+            disabled={isLoading}
+            className="flex-1 bg-muted/50 border border-border/50 rounded-xl px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-primary/50 disabled:opacity-50"
+          />
+          <Button variant="hero" size="icon" className="h-12 w-12 rounded-xl" onClick={() => sendMessage(input)} disabled={isLoading}>
+            <Send size={18} />
+          </Button>
+        </div>
+      </div>
+    </div>
+  );
+};
+
+export default ChatCoach;
