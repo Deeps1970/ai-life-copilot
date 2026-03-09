@@ -14,6 +14,57 @@ export type Database = {
   }
   public: {
     Tables: {
+      lifestyle_logs: {
+        Row: {
+          created_at: string
+          date: string
+          exercise_time: number
+          health_score: number
+          id: string
+          meals_quality: string
+          productivity_score: number
+          screen_time: number
+          sleep_hours: number
+          steps: number
+          sustainability_score: number
+          transport_type: string
+          user_id: string
+          water_intake: number
+        }
+        Insert: {
+          created_at?: string
+          date?: string
+          exercise_time?: number
+          health_score?: number
+          id?: string
+          meals_quality?: string
+          productivity_score?: number
+          screen_time?: number
+          sleep_hours?: number
+          steps?: number
+          sustainability_score?: number
+          transport_type?: string
+          user_id: string
+          water_intake?: number
+        }
+        Update: {
+          created_at?: string
+          date?: string
+          exercise_time?: number
+          health_score?: number
+          id?: string
+          meals_quality?: string
+          productivity_score?: number
+          screen_time?: number
+          sleep_hours?: number
+          steps?: number
+          sustainability_score?: number
+          transport_type?: string
+          user_id?: string
+          water_intake?: number
+        }
+        Relationships: []
+      }
       user_settings: {
         Row: {
           cloud_sync: boolean

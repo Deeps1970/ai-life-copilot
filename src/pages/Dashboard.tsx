@@ -3,20 +3,12 @@ import { useNavigate } from "react-router-dom";
 import CircularProgress from "@/components/CircularProgress";
 import { calculateScores, getImprovements, defaultData, type LifestyleData } from "@/lib/store";
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, BarChart, Bar } from "recharts";
-import { TrendingUp, ArrowRight, Heart, Brain, Leaf, BarChart3, Lightbulb, MessageCircle, Settings, Activity } from "lucide-react";
-
-// Build chart data from lifestyle history (falls back to current-day-only data)
-function getChartData(currentData: LifestyleData) {
-  const raw: Array<{ day: string; data: LifestyleData }> = JSON.parse(localStorage.getItem("lifestyleHistory") || "[]");
-  if (raw.length === 0) {
-    const today = new Date().toLocaleDateString("en-US", { weekday: "short" });
-    raw.push({ day: today, data: currentData });
-  }
-  const healthTrend = raw.map((h) => ({ day: h.day, score: calculateScores(h.data).health }));
-  const stepsVsScreen = raw.map((h) => ({ day: h.day, steps: h.data.steps, screen: h.data.screenTime }));
-  const sleepTrend = raw.map((h) => ({ day: h.day, hours: h.data.sleepHours }));
-  return { healthTrend, stepsVsScreen, sleepTrend };
-}
+import { TrendingUp, ArrowRight, Heart, Brain, Leaf, BarChart3, Lightbulb, MessageCircle, Settings, Activity, Plus } from "lucide-react";
+import { useLifestyleLogs, type LifestyleLog } from "@/hooks/useLifestyleLogs";
+import { Button } from "@/components/ui/button";
+import { Slider } from "@/components/ui/slider";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
+import { toast } from "sonner";
 
 const chartColors = {
   grid: "rgba(255,255,255,0.08)",
@@ -27,6 +19,20 @@ const chartColors = {
   accent: "hsl(190,90%,50%)",
   yellow: "hsl(45,90%,55%)",
 };
+
+function formatDate(dateStr: string) {
+  const d = new Date(dateStr + "T00:00:00");
+  return d.toLocaleDateString("en-US", { month: "short", day: "numeric" });
+}
+
+function buildChartData(logs: LifestyleLog[], days: number) {
+  const sliced = logs.slice(-days);
+  return {
+    healthTrend: sliced.map((l) => ({ day: formatDate(l.date), score: l.health_score })),
+    stepsVsScreen: sliced.map((l) => ({ day: formatDate(l.date), steps: l.steps, screen: l.screen_time })),
+    sleepTrend: sliced.map((l) => ({ day: formatDate(l.date), hours: l.sleep_hours })),
+  };
+}
 
 const mobileGridItems = [
   { icon: Heart, label: "Health Score", color: "text-red-400", section: "scores" },
@@ -42,6 +48,11 @@ const mobileGridItems = [
 const Dashboard = () => {
   const navigate = useNavigate();
   const [data, setData] = useState<LifestyleData>(defaultData);
+  const [rangeDays, setRangeDays] = useState<7 | 30>(7);
+  const [addDayOpen, setAddDayOpen] = useState(false);
+  const [newDay, setNewDay] = useState<LifestyleData>({ ...defaultData });
+
+  const { logs, upsertLog } = useLifestyleLogs();
 
   useEffect(() => {
     const saved = localStorage.getItem("lifestyleData");
@@ -50,13 +61,32 @@ const Dashboard = () => {
 
   const scores = calculateScores(data);
   const improvements = getImprovements(data);
-  const { healthTrend, stepsVsScreen, sleepTrend } = getChartData(data);
+
+  const hasLogs = logs.length > 0;
+  const { healthTrend, stepsVsScreen, sleepTrend } = buildChartData(logs, rangeDays);
 
   const handleGridClick = (section: string) => {
     if (section === "chat") return navigate("/chat");
     if (section === "logs") return navigate("/input");
+    if (section === "settings") return navigate("/profile");
     const el = document.getElementById(section);
     el?.scrollIntoView({ behavior: "smooth" });
+  };
+
+  const handleAddDay = async () => {
+    // Generate a date: if logs exist, next day after last log, else today
+    let dateStr: string;
+    if (logs.length > 0) {
+      const lastDate = new Date(logs[logs.length - 1].date + "T00:00:00");
+      lastDate.setDate(lastDate.getDate() + 1);
+      dateStr = lastDate.toISOString().slice(0, 10);
+    } else {
+      dateStr = new Date().toISOString().slice(0, 10);
+    }
+    await upsertLog(newDay, dateStr);
+    setNewDay({ ...defaultData });
+    setAddDayOpen(false);
+    toast.success("New day added to analytics!");
   };
 
   return (
@@ -65,7 +95,7 @@ const Dashboard = () => {
         <h1 className="text-3xl font-bold font-display mb-1 gradient-text">AI Life Dashboard</h1>
         <p className="text-muted-foreground mb-8">Your personalized lifestyle analysis</p>
 
-        {/* Mobile Grid - only on small screens */}
+        {/* Mobile Grid */}
         <div className="grid grid-cols-4 gap-3 mb-8 md:hidden">
           {mobileGridItems.map((item) => (
             <button key={item.label} className="mobile-grid-item" onClick={() => handleGridClick(item.section)}>
@@ -114,49 +144,109 @@ const Dashboard = () => {
 
         {/* Analytics */}
         <section id="analytics" className="mb-10">
-          <h2 className="text-xl font-display font-semibold mb-4 flex items-center gap-2">
-            <BarChart3 size={20} className="text-blue-400" /> Lifestyle Analytics
-          </h2>
-          <div className="grid md:grid-cols-2 gap-4">
-            <div className="glass-card p-5">
-              <h3 className="font-semibold mb-4">Daily Health Trend</h3>
-              <ResponsiveContainer width="100%" height={200}>
-                <LineChart data={healthTrend}>
-                  <CartesianGrid strokeDasharray="3 3" stroke={chartColors.grid} />
-                  <XAxis dataKey="day" stroke={chartColors.axis} fontSize={12} />
-                  <YAxis stroke={chartColors.axis} fontSize={12} />
-                  <Tooltip contentStyle={{ background: chartColors.tooltipBg, border: `1px solid ${chartColors.tooltipBorder}`, borderRadius: "12px", color: "inherit" }} />
-                  <Line type="monotone" dataKey="score" stroke={chartColors.primary} strokeWidth={2} dot={{ fill: chartColors.primary }} />
-                </LineChart>
-              </ResponsiveContainer>
-            </div>
-
-            <div className="glass-card p-5">
-              <h3 className="font-semibold mb-4">Steps vs Screen Time</h3>
-              <ResponsiveContainer width="100%" height={200}>
-                <BarChart data={stepsVsScreen}>
-                  <CartesianGrid strokeDasharray="3 3" stroke={chartColors.grid} />
-                  <XAxis dataKey="day" stroke={chartColors.axis} fontSize={12} />
-                  <YAxis stroke={chartColors.axis} fontSize={12} />
-                  <Tooltip contentStyle={{ background: chartColors.tooltipBg, border: `1px solid ${chartColors.tooltipBorder}`, borderRadius: "12px", color: "inherit" }} />
-                  <Bar dataKey="steps" fill={chartColors.accent} radius={[4, 4, 0, 0]} />
-                </BarChart>
-              </ResponsiveContainer>
-            </div>
-
-            <div className="glass-card p-5 md:col-span-2">
-              <h3 className="font-semibold mb-4">Sleep Quality Trend</h3>
-              <ResponsiveContainer width="100%" height={200}>
-                <LineChart data={sleepTrend}>
-                  <CartesianGrid strokeDasharray="3 3" stroke={chartColors.grid} />
-                  <XAxis dataKey="day" stroke={chartColors.axis} fontSize={12} />
-                  <YAxis stroke={chartColors.axis} fontSize={12} />
-                  <Tooltip contentStyle={{ background: chartColors.tooltipBg, border: `1px solid ${chartColors.tooltipBorder}`, borderRadius: "12px", color: "inherit" }} />
-                  <Line type="monotone" dataKey="hours" stroke={chartColors.yellow} strokeWidth={2} dot={{ fill: chartColors.yellow }} />
-                </LineChart>
-              </ResponsiveContainer>
+          <div className="flex items-center justify-between mb-4 flex-wrap gap-3">
+            <h2 className="text-xl font-display font-semibold flex items-center gap-2">
+              <BarChart3 size={20} className="text-blue-400" /> Lifestyle Analytics
+            </h2>
+            <div className="flex items-center gap-2">
+              <Dialog open={addDayOpen} onOpenChange={setAddDayOpen}>
+                <DialogTrigger asChild>
+                  <Button variant="outline" size="sm" className="gap-1 border-primary/30 text-primary hover:bg-primary/10">
+                    <Plus size={14} /> Add New Day
+                  </Button>
+                </DialogTrigger>
+                <DialogContent className="glass-card border-primary/20 max-w-md">
+                  <DialogHeader>
+                    <DialogTitle className="font-display">Add Demo Day</DialogTitle>
+                  </DialogHeader>
+                  <div className="space-y-4 mt-2">
+                    <div>
+                      <label className="text-sm text-muted-foreground">Steps: {newDay.steps.toLocaleString()}</label>
+                      <Slider value={[newDay.steps]} min={0} max={20000} step={500} onValueChange={([v]) => setNewDay((p) => ({ ...p, steps: v }))} />
+                    </div>
+                    <div>
+                      <label className="text-sm text-muted-foreground">Sleep: {newDay.sleepHours}h</label>
+                      <Slider value={[newDay.sleepHours]} min={0} max={12} step={0.5} onValueChange={([v]) => setNewDay((p) => ({ ...p, sleepHours: v }))} />
+                    </div>
+                    <div>
+                      <label className="text-sm text-muted-foreground">Water: {newDay.waterIntake}L</label>
+                      <Slider value={[newDay.waterIntake]} min={0} max={5} step={0.1} onValueChange={([v]) => setNewDay((p) => ({ ...p, waterIntake: Math.round(v * 10) / 10 }))} />
+                    </div>
+                    <div>
+                      <label className="text-sm text-muted-foreground">Screen Time: {newDay.screenTime}h</label>
+                      <Slider value={[newDay.screenTime]} min={0} max={16} step={0.5} onValueChange={([v]) => setNewDay((p) => ({ ...p, screenTime: v }))} />
+                    </div>
+                    <div>
+                      <label className="text-sm text-muted-foreground mb-1 block">Meals Quality</label>
+                      <div className="flex gap-2">
+                        {(["healthy", "mixed", "fastfood"] as const).map((t) => (
+                          <button key={t} onClick={() => setNewDay((p) => ({ ...p, mealsType: t }))}
+                            className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-all ${newDay.mealsType === t ? "bg-primary/20 text-primary border border-primary/40" : "bg-muted/50 text-muted-foreground border border-transparent"}`}>
+                            {t === "fastfood" ? "Fast Food" : t.charAt(0).toUpperCase() + t.slice(1)}
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+                    <Button variant="hero" className="w-full" onClick={handleAddDay}>Save Day</Button>
+                  </div>
+                </DialogContent>
+              </Dialog>
+              <div className="flex rounded-lg overflow-hidden border border-muted/30">
+                <button onClick={() => setRangeDays(7)} className={`px-3 py-1.5 text-xs font-medium transition-all ${rangeDays === 7 ? "bg-primary/20 text-primary" : "text-muted-foreground hover:text-foreground"}`}>7 Days</button>
+                <button onClick={() => setRangeDays(30)} className={`px-3 py-1.5 text-xs font-medium transition-all ${rangeDays === 30 ? "bg-primary/20 text-primary" : "text-muted-foreground hover:text-foreground"}`}>30 Days</button>
+              </div>
             </div>
           </div>
+
+          {!hasLogs ? (
+            <div className="glass-card p-10 text-center">
+              <Activity size={40} className="mx-auto mb-3 text-muted-foreground" />
+              <p className="text-muted-foreground">Start tracking your lifestyle to see analytics.</p>
+              <Button variant="outline" className="mt-4" onClick={() => navigate("/input")}>Log Your First Day</Button>
+            </div>
+          ) : (
+            <div className="grid md:grid-cols-2 gap-4">
+              <div className="glass-card p-5">
+                <h3 className="font-semibold mb-4">Daily Health Trend</h3>
+                <ResponsiveContainer width="100%" height={200}>
+                  <LineChart data={healthTrend}>
+                    <CartesianGrid strokeDasharray="3 3" stroke={chartColors.grid} />
+                    <XAxis dataKey="day" stroke={chartColors.axis} fontSize={12} />
+                    <YAxis stroke={chartColors.axis} fontSize={12} />
+                    <Tooltip contentStyle={{ background: chartColors.tooltipBg, border: `1px solid ${chartColors.tooltipBorder}`, borderRadius: "12px", color: "#fff" }} />
+                    <Line type="monotone" dataKey="score" stroke={chartColors.primary} strokeWidth={2} dot={{ fill: chartColors.primary }} />
+                  </LineChart>
+                </ResponsiveContainer>
+              </div>
+
+              <div className="glass-card p-5">
+                <h3 className="font-semibold mb-4">Steps vs Screen Time</h3>
+                <ResponsiveContainer width="100%" height={200}>
+                  <BarChart data={stepsVsScreen}>
+                    <CartesianGrid strokeDasharray="3 3" stroke={chartColors.grid} />
+                    <XAxis dataKey="day" stroke={chartColors.axis} fontSize={12} />
+                    <YAxis stroke={chartColors.axis} fontSize={12} />
+                    <Tooltip contentStyle={{ background: chartColors.tooltipBg, border: `1px solid ${chartColors.tooltipBorder}`, borderRadius: "12px", color: "#fff" }} />
+                    <Bar dataKey="steps" fill={chartColors.accent} radius={[4, 4, 0, 0]} />
+                    <Bar dataKey="screen" fill={chartColors.yellow} radius={[4, 4, 0, 0]} />
+                  </BarChart>
+                </ResponsiveContainer>
+              </div>
+
+              <div className="glass-card p-5 md:col-span-2">
+                <h3 className="font-semibold mb-4">Sleep Quality Trend</h3>
+                <ResponsiveContainer width="100%" height={200}>
+                  <LineChart data={sleepTrend}>
+                    <CartesianGrid strokeDasharray="3 3" stroke={chartColors.grid} />
+                    <XAxis dataKey="day" stroke={chartColors.axis} fontSize={12} />
+                    <YAxis stroke={chartColors.axis} fontSize={12} />
+                    <Tooltip contentStyle={{ background: chartColors.tooltipBg, border: `1px solid ${chartColors.tooltipBorder}`, borderRadius: "12px", color: "#fff" }} />
+                    <Line type="monotone" dataKey="hours" stroke={chartColors.yellow} strokeWidth={2} dot={{ fill: chartColors.yellow }} />
+                  </LineChart>
+                </ResponsiveContainer>
+              </div>
+            </div>
+          )}
         </section>
       </div>
     </div>
