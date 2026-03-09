@@ -4,6 +4,7 @@ import CircularProgress from "@/components/CircularProgress";
 import { calculateScores, getImprovements, defaultData, type LifestyleData } from "@/lib/store";
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, BarChart, Bar } from "recharts";
 import { TrendingUp, ArrowRight, Heart, Brain, Leaf, BarChart3, Lightbulb, MessageCircle, Settings, Activity } from "lucide-react";
+import { useChartTheme } from "@/hooks/useChartTheme";
 
 // Build chart data from lifestyle history (falls back to current-day-only data)
 function getChartData(currentData: LifestyleData) {
