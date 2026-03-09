@@ -104,9 +104,6 @@ const Profile = () => {
           {activePanel === "privacy" && (
             <PrivacySettings settings={settings} onUpdate={updateSettings} session={session} />
           )}
-          {activePanel === "appearance" && (
-            <AppearanceSettings settings={settings} onUpdate={updateSettings} />
-          )}
           {activePanel === "help" && <HelpSupport />}
         </div>
       </div>
