@@ -3,6 +3,7 @@ import { User, Bell, Shield, Palette, HelpCircle, LogOut, Cloud, Smartphone, Mai
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { supabase } from "@/integrations/supabase/client";
+import { lovable } from "@/integrations/lovable/index";
 
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
@@ -61,11 +62,10 @@ const Profile = () => {
   };
 
   const handleGoogleSignIn = async () => {
-    const { error } = await supabase.auth.signInWithOAuth({
-      provider: "google",
-      options: { redirectTo: window.location.origin },
+    const result = await lovable.auth.signInWithOAuth("google", {
+      redirect_uri: window.location.origin,
     });
-    if (error) toast.error("Google sign-in failed");
+    if (result?.error) toast.error("Google sign-in failed");
   };
 
   const handleLogout = async () => {
