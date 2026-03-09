@@ -4,7 +4,6 @@ import CircularProgress from "@/components/CircularProgress";
 import { calculateScores, getImprovements, defaultData, type LifestyleData } from "@/lib/store";
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, BarChart, Bar } from "recharts";
 import { TrendingUp, ArrowRight, Heart, Brain, Leaf, BarChart3, Lightbulb, MessageCircle, Settings, Activity } from "lucide-react";
-import { useChartTheme } from "@/hooks/useChartTheme";
 
 // Build chart data from lifestyle history (falls back to current-day-only data)
 function getChartData(currentData: LifestyleData) {
@@ -18,6 +17,16 @@ function getChartData(currentData: LifestyleData) {
   const sleepTrend = raw.map((h) => ({ day: h.day, hours: h.data.sleepHours }));
   return { healthTrend, stepsVsScreen, sleepTrend };
 }
+
+const chartColors = {
+  grid: "rgba(255,255,255,0.08)",
+  axis: "hsl(215,20%,55%)",
+  tooltipBg: "hsl(230,25%,10%)",
+  tooltipBorder: "hsl(220,30%,18%)",
+  primary: "hsl(265,80%,60%)",
+  accent: "hsl(190,90%,50%)",
+  yellow: "hsl(45,90%,55%)",
+};
 
 const mobileGridItems = [
   { icon: Heart, label: "Health Score", color: "text-red-400", section: "scores" },
@@ -42,7 +51,6 @@ const Dashboard = () => {
   const scores = calculateScores(data);
   const improvements = getImprovements(data);
   const { healthTrend, stepsVsScreen, sleepTrend } = getChartData(data);
-  const ct = useChartTheme();
 
   const handleGridClick = (section: string) => {
     if (section === "chat") return navigate("/chat");
@@ -114,11 +122,11 @@ const Dashboard = () => {
               <h3 className="font-semibold mb-4">Daily Health Trend</h3>
               <ResponsiveContainer width="100%" height={200}>
                 <LineChart data={healthTrend}>
-                  <CartesianGrid strokeDasharray="3 3" stroke={ct.grid} />
-                  <XAxis dataKey="day" stroke={ct.axis} fontSize={12} />
-                  <YAxis stroke={ct.axis} fontSize={12} />
-                  <Tooltip contentStyle={{ background: ct.tooltipBg, border: `1px solid ${ct.tooltipBorder}`, borderRadius: "12px", color: "inherit" }} />
-                  <Line type="monotone" dataKey="score" stroke={ct.primary} strokeWidth={2} dot={{ fill: ct.primary }} />
+                  <CartesianGrid strokeDasharray="3 3" stroke={chartColors.grid} />
+                  <XAxis dataKey="day" stroke={chartColors.axis} fontSize={12} />
+                  <YAxis stroke={chartColors.axis} fontSize={12} />
+                  <Tooltip contentStyle={{ background: chartColors.tooltipBg, border: `1px solid ${chartColors.tooltipBorder}`, borderRadius: "12px", color: "inherit" }} />
+                  <Line type="monotone" dataKey="score" stroke={chartColors.primary} strokeWidth={2} dot={{ fill: chartColors.primary }} />
                 </LineChart>
               </ResponsiveContainer>
             </div>
@@ -127,11 +135,11 @@ const Dashboard = () => {
               <h3 className="font-semibold mb-4">Steps vs Screen Time</h3>
               <ResponsiveContainer width="100%" height={200}>
                 <BarChart data={stepsVsScreen}>
-                  <CartesianGrid strokeDasharray="3 3" stroke={ct.grid} />
-                  <XAxis dataKey="day" stroke={ct.axis} fontSize={12} />
-                  <YAxis stroke={ct.axis} fontSize={12} />
-                  <Tooltip contentStyle={{ background: ct.tooltipBg, border: `1px solid ${ct.tooltipBorder}`, borderRadius: "12px", color: "inherit" }} />
-                  <Bar dataKey="steps" fill={ct.accent} radius={[4, 4, 0, 0]} />
+                  <CartesianGrid strokeDasharray="3 3" stroke={chartColors.grid} />
+                  <XAxis dataKey="day" stroke={chartColors.axis} fontSize={12} />
+                  <YAxis stroke={chartColors.axis} fontSize={12} />
+                  <Tooltip contentStyle={{ background: chartColors.tooltipBg, border: `1px solid ${chartColors.tooltipBorder}`, borderRadius: "12px", color: "inherit" }} />
+                  <Bar dataKey="steps" fill={chartColors.accent} radius={[4, 4, 0, 0]} />
                 </BarChart>
               </ResponsiveContainer>
             </div>
@@ -140,11 +148,11 @@ const Dashboard = () => {
               <h3 className="font-semibold mb-4">Sleep Quality Trend</h3>
               <ResponsiveContainer width="100%" height={200}>
                 <LineChart data={sleepTrend}>
-                  <CartesianGrid strokeDasharray="3 3" stroke={ct.grid} />
-                  <XAxis dataKey="day" stroke={ct.axis} fontSize={12} />
-                  <YAxis stroke={ct.axis} fontSize={12} />
-                  <Tooltip contentStyle={{ background: ct.tooltipBg, border: `1px solid ${ct.tooltipBorder}`, borderRadius: "12px", color: "inherit" }} />
-                  <Line type="monotone" dataKey="hours" stroke={ct.yellow} strokeWidth={2} dot={{ fill: ct.yellow }} />
+                  <CartesianGrid strokeDasharray="3 3" stroke={chartColors.grid} />
+                  <XAxis dataKey="day" stroke={chartColors.axis} fontSize={12} />
+                  <YAxis stroke={chartColors.axis} fontSize={12} />
+                  <Tooltip contentStyle={{ background: chartColors.tooltipBg, border: `1px solid ${chartColors.tooltipBorder}`, borderRadius: "12px", color: "inherit" }} />
+                  <Line type="monotone" dataKey="hours" stroke={chartColors.yellow} strokeWidth={2} dot={{ fill: chartColors.yellow }} />
                 </LineChart>
               </ResponsiveContainer>
             </div>
