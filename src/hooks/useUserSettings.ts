@@ -7,7 +7,6 @@ export interface UserSettings {
   notifications_water: boolean;
   notifications_steps: boolean;
   notifications_sleep: boolean;
-  theme: string;
   cloud_sync: boolean;
   share_anonymous_data: boolean;
 }
@@ -17,7 +16,6 @@ const DEFAULT_SETTINGS: UserSettings = {
   notifications_water: false,
   notifications_steps: false,
   notifications_sleep: false,
-  theme: "dark",
   cloud_sync: true,
   share_anonymous_data: false,
 };
