@@ -4,10 +4,13 @@ import { Moon, Droplets, Footprints, Utensils, Smartphone, Dumbbell, Bus, Car, B
 import { Slider } from "@/components/ui/slider";
 import { Button } from "@/components/ui/button";
 import { defaultData, type LifestyleData } from "@/lib/store";
+import { useLifestyleLogs } from "@/hooks/useLifestyleLogs";
+import { toast } from "sonner";
 
 const LifestyleInput = () => {
   const navigate = useNavigate();
   const [data, setData] = useState<LifestyleData>(defaultData);
+  const { upsertLog } = useLifestyleLogs();
 
   useEffect(() => {
     const saved = localStorage.getItem("lifestyleData");
@@ -16,16 +19,11 @@ const LifestyleInput = () => {
     }
   }, []);
 
-  const handleSubmit = () => {
+  const handleSubmit = async () => {
     localStorage.setItem("lifestyleData", JSON.stringify(data));
-    // Save to daily history for analytics charts
-    const today = new Date().toLocaleDateString("en-US", { weekday: "short" });
-    const history: Array<{ day: string; data: LifestyleData }> = JSON.parse(localStorage.getItem("lifestyleHistory") || "[]");
-    const existing = history.findIndex((h) => h.day === today);
-    if (existing >= 0) history[existing] = { day: today, data };
-    else history.push({ day: today, data });
-    // Keep last 7 entries
-    localStorage.setItem("lifestyleHistory", JSON.stringify(history.slice(-7)));
+    // Also save to lifestyle logs for analytics
+    await upsertLog(data);
+    toast.success("Lifestyle data saved!");
     navigate("/dashboard");
   };
 
