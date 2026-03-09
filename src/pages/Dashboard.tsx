@@ -42,6 +42,8 @@ const Dashboard = () => {
   const scores = calculateScores(data);
   const improvements = getImprovements(data);
   const { healthTrend, stepsVsScreen, sleepTrend } = getChartData(data);
+  const ct = useChartTheme();
+  const { healthTrend, stepsVsScreen, sleepTrend } = getChartData(data);
 
   const handleGridClick = (section: string) => {
     if (section === "chat") return navigate("/chat");
