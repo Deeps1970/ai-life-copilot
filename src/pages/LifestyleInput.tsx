@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { Moon, Droplets, Footprints, Utensils, Smartphone, Dumbbell, Bus, Car, Bike, PersonStanding } from "lucide-react";
 import { Slider } from "@/components/ui/slider";
@@ -9,8 +9,23 @@ const LifestyleInput = () => {
   const navigate = useNavigate();
   const [data, setData] = useState<LifestyleData>(defaultData);
 
+  useEffect(() => {
+    const saved = localStorage.getItem("lifestyleData");
+    if (saved) {
+      try { setData(JSON.parse(saved)); } catch {}
+    }
+  }, []);
+
   const handleSubmit = () => {
     localStorage.setItem("lifestyleData", JSON.stringify(data));
+    // Save to daily history for analytics charts
+    const today = new Date().toLocaleDateString("en-US", { weekday: "short" });
+    const history: Array<{ day: string; data: LifestyleData }> = JSON.parse(localStorage.getItem("lifestyleHistory") || "[]");
+    const existing = history.findIndex((h) => h.day === today);
+    if (existing >= 0) history[existing] = { day: today, data };
+    else history.push({ day: today, data });
+    // Keep last 7 entries
+    localStorage.setItem("lifestyleHistory", JSON.stringify(history.slice(-7)));
     navigate("/dashboard");
   };
 

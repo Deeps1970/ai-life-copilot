@@ -74,8 +74,8 @@
 ### 1. Clone & Install
 
 ```bash
-git clone https://github.com/your-username/ai-life-copilot.git
-cd ai-life-copilot
+git clone https://github.com/joshuahanielgts/Ai-life-copilot-HF26.git
+cd Ai-life-copilot-HF26
 npm install
 ```
 

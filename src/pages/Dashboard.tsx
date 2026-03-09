@@ -5,20 +5,18 @@ import { calculateScores, getImprovements, defaultData, type LifestyleData } fro
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, BarChart, Bar } from "recharts";
 import { TrendingUp, ArrowRight, Heart, Brain, Leaf, BarChart3, Lightbulb, MessageCircle, Settings, Activity } from "lucide-react";
 
-// Mock chart data
-const healthTrend = [
-  { day: "Mon", score: 58 }, { day: "Tue", score: 62 }, { day: "Wed", score: 55 },
-  { day: "Thu", score: 68 }, { day: "Fri", score: 72 }, { day: "Sat", score: 65 }, { day: "Sun", score: 70 },
-];
-const stepsVsScreen = [
-  { day: "Mon", steps: 6000, screen: 7 }, { day: "Tue", steps: 8000, screen: 5 },
-  { day: "Wed", steps: 4000, screen: 9 }, { day: "Thu", steps: 10000, screen: 4 },
-  { day: "Fri", steps: 7500, screen: 6 }, { day: "Sat", steps: 12000, screen: 3 }, { day: "Sun", steps: 9000, screen: 5 },
-];
-const sleepTrend = [
-  { day: "Mon", hours: 6.5 }, { day: "Tue", hours: 7 }, { day: "Wed", hours: 5.5 },
-  { day: "Thu", hours: 8 }, { day: "Fri", hours: 7.5 }, { day: "Sat", hours: 9 }, { day: "Sun", hours: 7 },
-];
+// Build chart data from lifestyle history (falls back to current-day-only data)
+function getChartData(currentData: LifestyleData) {
+  const raw: Array<{ day: string; data: LifestyleData }> = JSON.parse(localStorage.getItem("lifestyleHistory") || "[]");
+  if (raw.length === 0) {
+    const today = new Date().toLocaleDateString("en-US", { weekday: "short" });
+    raw.push({ day: today, data: currentData });
+  }
+  const healthTrend = raw.map((h) => ({ day: h.day, score: calculateScores(h.data).health }));
+  const stepsVsScreen = raw.map((h) => ({ day: h.day, steps: h.data.steps, screen: h.data.screenTime }));
+  const sleepTrend = raw.map((h) => ({ day: h.day, hours: h.data.sleepHours }));
+  return { healthTrend, stepsVsScreen, sleepTrend };
+}
 
 const mobileGridItems = [
   { icon: Heart, label: "Health Score", color: "text-red-400", section: "scores" },
@@ -42,6 +40,7 @@ const Dashboard = () => {
 
   const scores = calculateScores(data);
   const improvements = getImprovements(data);
+  const { healthTrend, stepsVsScreen, sleepTrend } = getChartData(data);
 
   const handleGridClick = (section: string) => {
     if (section === "chat") return navigate("/chat");
