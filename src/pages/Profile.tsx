@@ -1,19 +1,25 @@
 import { useState, useEffect } from "react";
-import { User, Bell, Shield, Palette, HelpCircle, LogOut, Cloud, Smartphone, Mail, Lock } from "lucide-react";
+import { User, Bell, Shield, Palette, HelpCircle, LogOut, Cloud, Smartphone, Mail, Lock, ArrowLeft } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { supabase } from "@/lib/supabase";
-
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import type { Session } from "@supabase/supabase-js";
 import { toast } from "sonner";
+import { useUserSettings } from "@/hooks/useUserSettings";
+import NotificationsSettings from "@/components/settings/NotificationsSettings";
+import PrivacySettings from "@/components/settings/PrivacySettings";
+import AppearanceSettings from "@/components/settings/AppearanceSettings";
+import HelpSupport from "@/components/settings/HelpSupport";
 
-const profileItems = [
-  { icon: Bell, label: "Notifications", desc: "Manage alert preferences" },
-  { icon: Shield, label: "Privacy", desc: "Data and privacy settings" },
-  { icon: Palette, label: "Appearance", desc: "Theme and display options" },
-  { icon: HelpCircle, label: "Help & Support", desc: "FAQs and contact us" },
+type SettingsPanel = "notifications" | "privacy" | "appearance" | "help" | null;
+
+const profileItems: { icon: typeof Bell; label: string; desc: string; panel: SettingsPanel }[] = [
+  { icon: Bell, label: "Notifications", desc: "Manage alert preferences", panel: "notifications" },
+  { icon: Shield, label: "Privacy", desc: "Data and privacy settings", panel: "privacy" },
+  { icon: Palette, label: "Appearance", desc: "Theme and display options", panel: "appearance" },
+  { icon: HelpCircle, label: "Help & Support", desc: "FAQs and contact us", panel: "help" },
 ];
 
 const Profile = () => {
@@ -23,6 +29,9 @@ const Profile = () => {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [submitting, setSubmitting] = useState(false);
+  const [activePanel, setActivePanel] = useState<SettingsPanel>(null);
+
+  const { settings, updateSettings } = useUserSettings(session);
 
   useEffect(() => {
     const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
@@ -42,8 +51,7 @@ const Profile = () => {
     try {
       if (authMode === "signup") {
         const { error } = await supabase.auth.signUp({
-          email,
-          password,
+          email, password,
           options: { emailRedirectTo: window.location.origin },
         });
         if (error) throw error;
@@ -81,6 +89,32 @@ const Profile = () => {
     );
   }
 
+  // ── Settings Panel View ──
+  if (activePanel) {
+    return (
+      <div className="min-h-screen pb-24 lg:pb-0 px-4 pt-8">
+        <div className="max-w-lg mx-auto">
+          <button
+            onClick={() => setActivePanel(null)}
+            className="flex items-center gap-2 text-sm text-muted-foreground hover:text-foreground transition-colors mb-6"
+          >
+            <ArrowLeft size={16} /> Back to Profile
+          </button>
+          {activePanel === "notifications" && (
+            <NotificationsSettings settings={settings} onUpdate={updateSettings} />
+          )}
+          {activePanel === "privacy" && (
+            <PrivacySettings settings={settings} onUpdate={updateSettings} session={session} />
+          )}
+          {activePanel === "appearance" && (
+            <AppearanceSettings settings={settings} onUpdate={updateSettings} />
+          )}
+          {activePanel === "help" && <HelpSupport />}
+        </div>
+      </div>
+    );
+  }
+
   // ── Authenticated UI ──
   if (session) {
     const user = session.user;
@@ -91,7 +125,6 @@ const Profile = () => {
     return (
       <div className="min-h-screen pb-24 lg:pb-0 px-4 pt-8">
         <div className="max-w-lg mx-auto">
-          {/* Avatar & Info */}
           <div className="flex flex-col items-center mb-8">
             <Avatar className="w-20 h-20 mb-3 border-2 border-primary/40">
               <AvatarImage src={avatarUrl} alt={displayName} />
@@ -106,10 +139,13 @@ const Profile = () => {
             </Badge>
           </div>
 
-          {/* Settings */}
           <div className="grid gap-3">
             {profileItems.map((item) => (
-              <button key={item.label} className="glass-card p-4 flex items-center gap-4 w-full text-left hover:bg-primary/5 transition-colors">
+              <button
+                key={item.label}
+                onClick={() => setActivePanel(item.panel)}
+                className="glass-card p-4 flex items-center gap-4 w-full text-left hover:bg-primary/5 transition-colors"
+              >
                 <div className="p-2 rounded-xl bg-muted">
                   <item.icon size={20} className="text-muted-foreground" />
                 </div>
@@ -138,7 +174,6 @@ const Profile = () => {
   return (
     <div className="min-h-screen pb-24 lg:pb-0 px-4 pt-8">
       <div className="max-w-lg mx-auto">
-        {/* Guest Avatar */}
         <div className="flex flex-col items-center mb-6">
           <div className="w-20 h-20 rounded-full bg-muted border-2 border-border flex items-center justify-center mb-3">
             <User size={36} className="text-muted-foreground" />
@@ -150,37 +185,39 @@ const Profile = () => {
           </div>
         </div>
 
-        {/* Info banner */}
         <div className="glass-card p-4 mb-6 border border-primary/20 bg-primary/5">
           <p className="text-sm text-muted-foreground leading-relaxed">
             You are currently using <span className="text-foreground font-medium">AI Life Copilot</span> as a guest. Your data is stored locally on this device. Sign in to sync your data to the cloud.
           </p>
         </div>
 
-        {/* Auth Form */}
+        {/* Settings for guests too */}
+        <div className="grid gap-3 mb-6">
+          {profileItems.map((item) => (
+            <button
+              key={item.label}
+              onClick={() => setActivePanel(item.panel)}
+              className="glass-card p-4 flex items-center gap-4 w-full text-left hover:bg-primary/5 transition-colors"
+            >
+              <div className="p-2 rounded-xl bg-muted">
+                <item.icon size={20} className="text-muted-foreground" />
+              </div>
+              <div>
+                <p className="font-medium">{item.label}</p>
+                <p className="text-xs text-muted-foreground">{item.desc}</p>
+              </div>
+            </button>
+          ))}
+        </div>
+
         <form onSubmit={handleEmailAuth} className="grid gap-3 mb-4">
           <div className="relative">
             <Mail size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" />
-            <Input
-              type="email"
-              placeholder="Email"
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
-              required
-              className="pl-10"
-            />
+            <Input type="email" placeholder="Email" value={email} onChange={(e) => setEmail(e.target.value)} required className="pl-10" />
           </div>
           <div className="relative">
             <Lock size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" />
-            <Input
-              type="password"
-              placeholder="Password"
-              value={password}
-              onChange={(e) => setPassword(e.target.value)}
-              required
-              minLength={6}
-              className="pl-10"
-            />
+            <Input type="password" placeholder="Password" value={password} onChange={(e) => setPassword(e.target.value)} required minLength={6} className="pl-10" />
           </div>
           <Button type="submit" disabled={submitting} className="w-full">
             {submitting ? "Please wait…" : authMode === "login" ? "Login" : "Sign Up"}
