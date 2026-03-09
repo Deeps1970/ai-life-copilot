@@ -1,14 +1,11 @@
-import { useEffect, useState, /* v2 */ } from "react";
+import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import CircularProgress from "@/components/CircularProgress";
 import { calculateScores, getImprovements, defaultData, type LifestyleData } from "@/lib/store";
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, BarChart, Bar } from "recharts";
-import { TrendingUp, ArrowRight, Heart, Brain, Leaf, BarChart3, Lightbulb, MessageCircle, Settings, Activity, Plus } from "lucide-react";
+import { TrendingUp, ArrowRight, Heart, Brain, Leaf, BarChart3, Lightbulb, MessageCircle, Settings, Activity } from "lucide-react";
 import { useLifestyleLogs, type LifestyleLog } from "@/hooks/useLifestyleLogs";
 import { Button } from "@/components/ui/button";
-import { Slider } from "@/components/ui/slider";
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
-import { toast } from "sonner";
 
 const chartColors = {
   grid: "rgba(255,255,255,0.08)",
@@ -49,10 +46,8 @@ const Dashboard = () => {
   const navigate = useNavigate();
   const [data, setData] = useState<LifestyleData>(defaultData);
   const [rangeDays, setRangeDays] = useState<7 | 30>(7);
-  const [addDayOpen, setAddDayOpen] = useState(false);
-  const [newDay, setNewDay] = useState<LifestyleData>({ ...defaultData });
 
-  const { logs, upsertLog } = useLifestyleLogs();
+  const { logs } = useLifestyleLogs();
 
   useEffect(() => {
     const saved = localStorage.getItem("lifestyleData");
@@ -71,22 +66,6 @@ const Dashboard = () => {
     if (section === "settings") return navigate("/profile");
     const el = document.getElementById(section);
     el?.scrollIntoView({ behavior: "smooth" });
-  };
-
-  const handleAddDay = async () => {
-    // Generate a date: if logs exist, next day after last log, else today
-    let dateStr: string;
-    if (logs.length > 0) {
-      const lastDate = new Date(logs[logs.length - 1].date + "T00:00:00");
-      lastDate.setDate(lastDate.getDate() + 1);
-      dateStr = lastDate.toISOString().slice(0, 10);
-    } else {
-      dateStr = new Date().toISOString().slice(0, 10);
-    }
-    await upsertLog(newDay, dateStr);
-    setNewDay({ ...defaultData });
-    setAddDayOpen(false);
-    toast.success("New day added to analytics!");
   };
 
   return (
@@ -148,60 +127,16 @@ const Dashboard = () => {
             <h2 className="text-xl font-display font-semibold flex items-center gap-2">
               <BarChart3 size={20} className="text-blue-400" /> Lifestyle Analytics
             </h2>
-            <div className="flex items-center gap-2">
-              <Dialog open={addDayOpen} onOpenChange={setAddDayOpen}>
-                <DialogTrigger asChild>
-                  <Button variant="outline" size="sm" className="gap-1 border-primary/30 text-primary hover:bg-primary/10">
-                    <Plus size={14} /> Add New Day
-                  </Button>
-                </DialogTrigger>
-                <DialogContent className="glass-card border-primary/20 max-w-md">
-                  <DialogHeader>
-                    <DialogTitle className="font-display">Add Demo Day</DialogTitle>
-                  </DialogHeader>
-                  <div className="space-y-4 mt-2">
-                    <div>
-                      <label className="text-sm text-muted-foreground">Steps: {newDay.steps.toLocaleString()}</label>
-                      <Slider value={[newDay.steps]} min={0} max={20000} step={500} onValueChange={([v]) => setNewDay((p) => ({ ...p, steps: v }))} />
-                    </div>
-                    <div>
-                      <label className="text-sm text-muted-foreground">Sleep: {newDay.sleepHours}h</label>
-                      <Slider value={[newDay.sleepHours]} min={0} max={12} step={0.5} onValueChange={([v]) => setNewDay((p) => ({ ...p, sleepHours: v }))} />
-                    </div>
-                    <div>
-                      <label className="text-sm text-muted-foreground">Water: {newDay.waterIntake}L</label>
-                      <Slider value={[newDay.waterIntake]} min={0} max={5} step={0.1} onValueChange={([v]) => setNewDay((p) => ({ ...p, waterIntake: Math.round(v * 10) / 10 }))} />
-                    </div>
-                    <div>
-                      <label className="text-sm text-muted-foreground">Screen Time: {newDay.screenTime}h</label>
-                      <Slider value={[newDay.screenTime]} min={0} max={16} step={0.5} onValueChange={([v]) => setNewDay((p) => ({ ...p, screenTime: v }))} />
-                    </div>
-                    <div>
-                      <label className="text-sm text-muted-foreground mb-1 block">Meals Quality</label>
-                      <div className="flex gap-2">
-                        {(["healthy", "mixed", "fastfood"] as const).map((t) => (
-                          <button key={t} onClick={() => setNewDay((p) => ({ ...p, mealsType: t }))}
-                            className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-all ${newDay.mealsType === t ? "bg-primary/20 text-primary border border-primary/40" : "bg-muted/50 text-muted-foreground border border-transparent"}`}>
-                            {t === "fastfood" ? "Fast Food" : t.charAt(0).toUpperCase() + t.slice(1)}
-                          </button>
-                        ))}
-                      </div>
-                    </div>
-                    <Button variant="hero" className="w-full" onClick={handleAddDay}>Save Day</Button>
-                  </div>
-                </DialogContent>
-              </Dialog>
-              <div className="flex rounded-lg overflow-hidden border border-muted/30">
-                <button onClick={() => setRangeDays(7)} className={`px-3 py-1.5 text-xs font-medium transition-all ${rangeDays === 7 ? "bg-primary/20 text-primary" : "text-muted-foreground hover:text-foreground"}`}>7 Days</button>
-                <button onClick={() => setRangeDays(30)} className={`px-3 py-1.5 text-xs font-medium transition-all ${rangeDays === 30 ? "bg-primary/20 text-primary" : "text-muted-foreground hover:text-foreground"}`}>30 Days</button>
-              </div>
+            <div className="flex rounded-lg overflow-hidden border border-muted/30">
+              <button onClick={() => setRangeDays(7)} className={`px-3 py-1.5 text-xs font-medium transition-all ${rangeDays === 7 ? "bg-primary/20 text-primary" : "text-muted-foreground hover:text-foreground"}`}>7 Days</button>
+              <button onClick={() => setRangeDays(30)} className={`px-3 py-1.5 text-xs font-medium transition-all ${rangeDays === 30 ? "bg-primary/20 text-primary" : "text-muted-foreground hover:text-foreground"}`}>30 Days</button>
             </div>
           </div>
 
           {!hasLogs ? (
             <div className="glass-card p-10 text-center">
               <Activity size={40} className="mx-auto mb-3 text-muted-foreground" />
-              <p className="text-muted-foreground">Start tracking your lifestyle to see analytics.</p>
+              <p className="text-muted-foreground">Start logging your lifestyle to see analytics.</p>
               <Button variant="outline" className="mt-4" onClick={() => navigate("/input")}>Log Your First Day</Button>
             </div>
           ) : (
