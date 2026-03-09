@@ -114,11 +114,11 @@ const Dashboard = () => {
               <h3 className="font-semibold mb-4">Daily Health Trend</h3>
               <ResponsiveContainer width="100%" height={200}>
                 <LineChart data={healthTrend}>
-                  <CartesianGrid strokeDasharray="3 3" stroke="hsl(220,30%,18%)" />
-                  <XAxis dataKey="day" stroke="hsl(215,20%,55%)" fontSize={12} />
-                  <YAxis stroke="hsl(215,20%,55%)" fontSize={12} />
-                  <Tooltip contentStyle={{ background: "hsl(230,25%,10%)", border: "1px solid hsl(220,30%,18%)", borderRadius: "12px" }} />
-                  <Line type="monotone" dataKey="score" stroke="hsl(265,80%,60%)" strokeWidth={2} dot={{ fill: "hsl(265,80%,60%)" }} />
+                  <CartesianGrid strokeDasharray="3 3" stroke={ct.grid} />
+                  <XAxis dataKey="day" stroke={ct.axis} fontSize={12} />
+                  <YAxis stroke={ct.axis} fontSize={12} />
+                  <Tooltip contentStyle={{ background: ct.tooltipBg, border: `1px solid ${ct.tooltipBorder}`, borderRadius: "12px", color: "inherit" }} />
+                  <Line type="monotone" dataKey="score" stroke={ct.primary} strokeWidth={2} dot={{ fill: ct.primary }} />
                 </LineChart>
               </ResponsiveContainer>
             </div>
@@ -127,11 +127,11 @@ const Dashboard = () => {
               <h3 className="font-semibold mb-4">Steps vs Screen Time</h3>
               <ResponsiveContainer width="100%" height={200}>
                 <BarChart data={stepsVsScreen}>
-                  <CartesianGrid strokeDasharray="3 3" stroke="hsl(220,30%,18%)" />
-                  <XAxis dataKey="day" stroke="hsl(215,20%,55%)" fontSize={12} />
-                  <YAxis stroke="hsl(215,20%,55%)" fontSize={12} />
-                  <Tooltip contentStyle={{ background: "hsl(230,25%,10%)", border: "1px solid hsl(220,30%,18%)", borderRadius: "12px" }} />
-                  <Bar dataKey="steps" fill="hsl(190,90%,50%)" radius={[4, 4, 0, 0]} />
+                  <CartesianGrid strokeDasharray="3 3" stroke={ct.grid} />
+                  <XAxis dataKey="day" stroke={ct.axis} fontSize={12} />
+                  <YAxis stroke={ct.axis} fontSize={12} />
+                  <Tooltip contentStyle={{ background: ct.tooltipBg, border: `1px solid ${ct.tooltipBorder}`, borderRadius: "12px", color: "inherit" }} />
+                  <Bar dataKey="steps" fill={ct.accent} radius={[4, 4, 0, 0]} />
                 </BarChart>
               </ResponsiveContainer>
             </div>
@@ -140,11 +140,11 @@ const Dashboard = () => {
               <h3 className="font-semibold mb-4">Sleep Quality Trend</h3>
               <ResponsiveContainer width="100%" height={200}>
                 <LineChart data={sleepTrend}>
-                  <CartesianGrid strokeDasharray="3 3" stroke="hsl(220,30%,18%)" />
-                  <XAxis dataKey="day" stroke="hsl(215,20%,55%)" fontSize={12} />
-                  <YAxis stroke="hsl(215,20%,55%)" fontSize={12} />
-                  <Tooltip contentStyle={{ background: "hsl(230,25%,10%)", border: "1px solid hsl(220,30%,18%)", borderRadius: "12px" }} />
-                  <Line type="monotone" dataKey="hours" stroke="hsl(45,90%,55%)" strokeWidth={2} dot={{ fill: "hsl(45,90%,55%)" }} />
+                  <CartesianGrid strokeDasharray="3 3" stroke={ct.grid} />
+                  <XAxis dataKey="day" stroke={ct.axis} fontSize={12} />
+                  <YAxis stroke={ct.axis} fontSize={12} />
+                  <Tooltip contentStyle={{ background: ct.tooltipBg, border: `1px solid ${ct.tooltipBorder}`, borderRadius: "12px", color: "inherit" }} />
+                  <Line type="monotone" dataKey="hours" stroke={ct.yellow} strokeWidth={2} dot={{ fill: ct.yellow }} />
                 </LineChart>
               </ResponsiveContainer>
             </div>
