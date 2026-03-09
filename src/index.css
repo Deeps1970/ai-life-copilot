@@ -5,7 +5,6 @@
 @tailwind utilities;
 
 @layer base {
-  /* ── Copilot Dark (default) ── */
   :root {
     --background: 230 25% 7%;
     --foreground: 210 40% 96%;
@@ -47,12 +46,6 @@
     --shadow-glow-cyan: 0 0 30px hsl(190 90% 50% / 0.15);
     --shadow-glow-blue: 0 0 30px hsl(220 90% 55% / 0.15);
 
-    /* Chart tokens */
-    --chart-grid: 0 0% 100% / 0.08;
-    --chart-axis: 215 20% 55%;
-    --chart-tooltip-bg: 230 25% 10%;
-    --chart-tooltip-border: 220 30% 18%;
-
     --sidebar-background: 230 25% 10%;
     --sidebar-foreground: 210 40% 96%;
     --sidebar-primary: 265 80% 60%;
@@ -61,62 +54,6 @@
     --sidebar-accent-foreground: 210 40% 96%;
     --sidebar-border: 220 30% 18%;
     --sidebar-ring: 265 80% 60%;
-  }
-
-  /* ── Clean Light ── */
-  .light-theme {
-    --background: 228 33% 97%;
-    --foreground: 222 47% 11%;
-
-    --card: 0 0% 100%;
-    --card-foreground: 222 47% 11%;
-
-    --popover: 0 0% 100%;
-    --popover-foreground: 222 47% 11%;
-
-    --primary: 249 53% 56%;
-    --primary-foreground: 0 0% 100%;
-
-    --secondary: 215 25% 92%;
-    --secondary-foreground: 222 47% 11%;
-
-    --muted: 220 15% 92%;
-    --muted-foreground: 215 16% 37%;
-
-    --accent: 217 91% 60%;
-    --accent-foreground: 0 0% 100%;
-
-    --destructive: 0 72% 51%;
-    --destructive-foreground: 0 0% 100%;
-
-    --border: 220 13% 86%;
-    --input: 220 13% 86%;
-    --ring: 249 53% 56%;
-
-    /* Custom tokens – light overrides */
-    --gradient-primary: linear-gradient(135deg, hsl(249 53% 56%), hsl(217 91% 60%));
-    --gradient-accent: linear-gradient(135deg, hsl(217 91% 60%), hsl(199 89% 48%));
-    --gradient-hero: linear-gradient(160deg, hsl(228 33% 97%), hsl(220 25% 94%) 40%, hsl(228 33% 97%));
-    --gradient-card: linear-gradient(135deg, hsl(0 0% 100%), hsl(228 33% 97%));
-    --gradient-glass: linear-gradient(135deg, hsl(0 0% 100% / 0.7), hsl(228 33% 97% / 0.5));
-    --shadow-glow-purple: 0 8px 24px hsl(0 0% 0% / 0.06);
-    --shadow-glow-cyan: 0 8px 24px hsl(0 0% 0% / 0.06);
-    --shadow-glow-blue: 0 8px 24px hsl(0 0% 0% / 0.06);
-
-    /* Chart tokens */
-    --chart-grid: 0 0% 0% / 0.08;
-    --chart-axis: 215 16% 37%;
-    --chart-tooltip-bg: 0 0% 100%;
-    --chart-tooltip-border: 220 13% 86%;
-
-    --sidebar-background: 0 0% 100%;
-    --sidebar-foreground: 222 47% 11%;
-    --sidebar-primary: 249 53% 56%;
-    --sidebar-primary-foreground: 0 0% 100%;
-    --sidebar-accent: 215 25% 92%;
-    --sidebar-accent-foreground: 222 47% 11%;
-    --sidebar-border: 220 13% 86%;
-    --sidebar-ring: 249 53% 56%;
   }
 }
 
