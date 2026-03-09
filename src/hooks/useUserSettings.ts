@@ -60,7 +60,6 @@ export function useUserSettings(session: Session | null) {
           notifications_water: data.notifications_water,
           notifications_steps: data.notifications_steps,
           notifications_sleep: data.notifications_sleep,
-          theme: data.theme,
           cloud_sync: data.cloud_sync,
           share_anonymous_data: data.share_anonymous_data,
         };
