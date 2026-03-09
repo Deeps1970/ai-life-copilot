@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useState, /* v2 */ } from "react";
 import { useNavigate } from "react-router-dom";
 import CircularProgress from "@/components/CircularProgress";
 import { calculateScores, getImprovements, defaultData, type LifestyleData } from "@/lib/store";
