@@ -2,8 +2,7 @@ import { useState, useEffect } from "react";
 import { User, Bell, Shield, Palette, HelpCircle, LogOut, Cloud, Smartphone, Mail, Lock } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { supabase } from "@/integrations/supabase/client";
-import { lovable } from "@/integrations/lovable/index";
+import { supabase } from "@/lib/supabase";
 
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
@@ -62,10 +61,11 @@ const Profile = () => {
   };
 
   const handleGoogleSignIn = async () => {
-    const result = await lovable.auth.signInWithOAuth("google", {
-      redirect_uri: window.location.origin,
+    const { error } = await supabase.auth.signInWithOAuth({
+      provider: "google",
+      options: { redirectTo: window.location.origin },
     });
-    if (result?.error) toast.error("Google sign-in failed");
+    if (error) toast.error("Google sign-in failed");
   };
 
   const handleLogout = async () => {
