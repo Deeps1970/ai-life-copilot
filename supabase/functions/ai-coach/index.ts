@@ -6,6 +6,95 @@ const corsHeaders = {
     "authorization, x-client-info, apikey, content-type, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version",
 };
 
+async function callGemini(apiKey: string, body: object, attempt = 1): Promise<Response> {
+  const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:streamGenerateContent?alt=sse&key=${apiKey}`;
+
+  const resp = await fetch(url, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(body),
+  });
+
+  // Retry once on rate-limit or 5xx
+  if ((resp.status === 429 || resp.status >= 500) && attempt < 2) {
+    await new Promise((r) => setTimeout(r, 2000));
+    return callGemini(apiKey, body, attempt + 1);
+  }
+
+  return resp;
+}
+
+function buildGeminiBody(systemPrompt: string, messages: { role: string; content: string }[]) {
+  const contents = messages.map((m) => ({
+    role: m.role === "assistant" ? "model" : "user",
+    parts: [{ text: m.content }],
+  }));
+
+  return {
+    system_instruction: { parts: [{ text: systemPrompt }] },
+    contents,
+    generationConfig: {
+      maxOutputTokens: 512,
+      temperature: 0.7,
+    },
+  };
+}
+
+// Transform Gemini SSE stream to OpenAI-compatible SSE stream
+function transformStream(geminiStream: ReadableStream<Uint8Array>): ReadableStream<Uint8Array> {
+  const reader = geminiStream.getReader();
+  const decoder = new TextDecoder();
+  const encoder = new TextEncoder();
+  let buffer = "";
+
+  return new ReadableStream({
+    async pull(controller) {
+      const { done, value } = await reader.read();
+      if (done) {
+        // Flush remaining buffer
+        if (buffer.trim()) {
+          processLines(buffer, controller, encoder);
+        }
+        controller.enqueue(encoder.encode("data: [DONE]\n\n"));
+        controller.close();
+        return;
+      }
+
+      buffer += decoder.decode(value, { stream: true });
+      let newlineIdx: number;
+      while ((newlineIdx = buffer.indexOf("\n")) !== -1) {
+        const line = buffer.slice(0, newlineIdx).trim();
+        buffer = buffer.slice(newlineIdx + 1);
+        if (!line) continue;
+        processLine(line, controller, encoder);
+      }
+    },
+  });
+}
+
+function processLines(text: string, controller: ReadableStreamDefaultController, encoder: TextEncoder) {
+  for (const line of text.split("\n")) {
+    if (line.trim()) processLine(line.trim(), controller, encoder);
+  }
+}
+
+function processLine(line: string, controller: ReadableStreamDefaultController, encoder: TextEncoder) {
+  if (!line.startsWith("data: ")) return;
+  const jsonStr = line.slice(6);
+  try {
+    const parsed = JSON.parse(jsonStr);
+    const text = parsed.candidates?.[0]?.content?.parts?.[0]?.text;
+    if (text) {
+      const openAiChunk = {
+        choices: [{ delta: { content: text } }],
+      };
+      controller.enqueue(encoder.encode(`data: ${JSON.stringify(openAiChunk)}\n\n`));
+    }
+  } catch {
+    // skip malformed
+  }
+}
+
 serve(async (req) => {
   if (req.method === "OPTIONS") {
     return new Response(null, { headers: corsHeaders });
@@ -13,8 +102,8 @@ serve(async (req) => {
 
   try {
     const { messages, lifestyleData, activeSuggestions, completedSuggestions } = await req.json();
-    const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
-    if (!LOVABLE_API_KEY) throw new Error("LOVABLE_API_KEY is not configured");
+    const GEMINI_API_KEY = Deno.env.get("GEMINI_API_KEY");
+    if (!GEMINI_API_KEY) throw new Error("GEMINI_API_KEY is not configured");
 
     const systemPrompt = `You are AI Life Copilot, a smart lifestyle and wellness coach.
 
@@ -48,53 +137,36 @@ ${activeSuggestions?.length ? `ACTIVE SUGGESTIONS (previously given, not yet com
 
 ${completedSuggestions?.length ? `RECENTLY COMPLETED (user confirmed these):\n${completedSuggestions.map((s: string) => `✅ ${s}`).join("\n")}\nAcknowledge their progress positively and suggest next steps.` : ""}`;
 
-    const response = await fetch(
-      "https://ai.gateway.lovable.dev/v1/chat/completions",
-      {
-        method: "POST",
-        headers: {
-          Authorization: `Bearer ${LOVABLE_API_KEY}`,
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          model: "google/gemini-3-flash-preview",
-          messages: [
-            { role: "system", content: systemPrompt },
-            ...messages,
-          ],
-          stream: true,
-        }),
-      }
-    );
+    const geminiBody = buildGeminiBody(systemPrompt, messages);
+    const response = await callGemini(GEMINI_API_KEY, geminiBody);
 
     if (!response.ok) {
+      const errText = await response.text();
+      console.error("Gemini error:", response.status, errText);
+
       if (response.status === 429) {
         return new Response(
-          JSON.stringify({ error: "Rate limit exceeded. Please try again in a moment." }),
+          JSON.stringify({ error: "AI Coach is thinking... please try again." }),
           { status: 429, headers: { ...corsHeaders, "Content-Type": "application/json" } }
         );
       }
-      if (response.status === 402) {
-        return new Response(
-          JSON.stringify({ error: "AI usage limit reached. Please add credits to your workspace." }),
-          { status: 402, headers: { ...corsHeaders, "Content-Type": "application/json" } }
-        );
-      }
-      const t = await response.text();
-      console.error("AI gateway error:", response.status, t);
+
       return new Response(
-        JSON.stringify({ error: "AI service error" }),
+        JSON.stringify({ error: "AI Coach is thinking... please try again." }),
         { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
     }
 
-    return new Response(response.body, {
+    // Transform Gemini SSE to OpenAI-compatible SSE so the frontend parser works unchanged
+    const transformed = transformStream(response.body!);
+
+    return new Response(transformed, {
       headers: { ...corsHeaders, "Content-Type": "text/event-stream" },
     });
   } catch (e) {
     console.error("ai-coach error:", e);
     return new Response(
-      JSON.stringify({ error: e instanceof Error ? e.message : "Unknown error" }),
+      JSON.stringify({ error: "AI Coach is thinking... please try again." }),
       { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
     );
   }
